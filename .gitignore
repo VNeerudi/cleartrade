@@ -20,3 +20,7 @@ frontend/dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Datasets (keep local only)
+data/
+*.csv
