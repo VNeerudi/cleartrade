@@ -18,6 +18,25 @@ const getRecommendationClass = (recommendation) => {
   return "pill pill-neutral";
 };
 
+const formatFundamentals = (fundamentals) => {
+  if (!fundamentals) return {};
+  const { pe_ratio, earnings_growth, revenue_growth } = fundamentals;
+  return {
+    pe: pe_ratio ?? "—",
+    eg: typeof earnings_growth === "number" ? `${(earnings_growth * 100).toFixed(1)}%` : "—",
+    rg: typeof revenue_growth === "number" ? `${(revenue_growth * 100).toFixed(1)}%` : "—",
+  };
+};
+
+const describeSentiment = (score) => {
+  if (typeof score !== "number" || Number.isNaN(score)) {
+    return { label: "No data", tone: "neutral" };
+  }
+  if (score > 0.1) return { label: `Positive (${score.toFixed(2)})`, tone: "positive" };
+  if (score < -0.1) return { label: `Negative (${score.toFixed(2)})`, tone: "negative" };
+  return { label: `Neutral (${score.toFixed(2)})`, tone: "neutral" };
+};
+
 export default function App() {
   const [ticker, setTicker] = useState("AAPL");
   const [result, setResult] = useState(null);
@@ -74,6 +93,8 @@ export default function App() {
   }
 
   const hasResult = Boolean(result);
+  const fundamentals = hasResult ? formatFundamentals(result.fundamentals) : null;
+  const sentimentInfo = hasResult ? describeSentiment(result.sentiment) : null;
 
   return (
     <div className="app">
@@ -83,144 +104,206 @@ export default function App() {
             <span className="brand-badge">CT</span>
             <div>
               <h1 className="app-title">ClearTrade</h1>
-              <p className="app-subtitle">Explainable, AI-powered stock decision support.</p>
+              <p className="app-subtitle">Explainable stock decision support.</p>
             </div>
           </div>
-
-          <div className="ticker-form">
-            <label className="ticker-label">
-              Ticker
-              <input
-                className="ticker-input"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value)}
-                placeholder="e.g. AAPL"
-              />
-            </label>
-            <button
-              className="primary-button"
-              onClick={analyze}
-              disabled={loading}
-            >
-              {loading ? "Analyzing..." : "Analyze"}
-            </button>
-          </div>
-
-          {err && <p className="error-text">{err}</p>}
         </header>
 
-        <main className="app-main">
-          {!hasResult && !err && (
-            <div className="empty-state">
-              <h2>Start with a ticker symbol</h2>
-              <p>We&apos;ll fetch indicators, fundamentals, sentiment, and a clear recommendation for your next move.</p>
-              <ul className="empty-list">
-                <li>View a concise recommendation and confidence score.</li>
-                <li>Inspect key technical indicators and volatility.</li>
-                <li>Chat with an agent to dig into the &quot;why&quot; behind the signal.</li>
-              </ul>
-            </div>
-          )}
+        <div className="layout">
+          <aside className="sidebar">
+            <div className="sidebar-card ticker-card">
+              <div className="ticker-row">
+                <div className="ticker-chip">
+                  <span className="ticker-symbol">{ticker.toUpperCase()}</span>
+                </div>
+                <button
+                  className="primary-button"
+                  onClick={analyze}
+                  disabled={loading}
+                >
+                  {loading ? "Analyzing..." : "Analyze"}
+                </button>
+              </div>
 
-          {hasResult && (
-            <section className="app-grid">
-              <article className="panel">
-                <header className="panel-header">
-                  <div>
-                    <p className="panel-label">Overview</p>
-                    <h2 className="panel-title">{result.ticker}</h2>
-                  </div>
+              <label className="ticker-label">
+                Enter ticker symbol
+                <input
+                  className="ticker-input"
+                  value={ticker}
+                  onChange={(e) => setTicker(e.target.value)}
+                  placeholder="e.g. MSFT"
+                />
+              </label>
+
+              {err && <p className="error-text">{err}</p>}
+
+              {hasResult && (
+                <div className="ticker-summary">
+                  <span className="ticker-summary-label">Latest signal</span>
                   <span className={getRecommendationClass(result.recommendation)}>
-                    {result.recommendation || "No signal"}
+                    {result.recommendation || "No signal"} · {formatConfidence(result.confidence)}
                   </span>
-                </header>
+                </div>
+              )}
+            </div>
 
-                <div className="metric-row">
-                  <div className="metric">
-                    <p className="metric-label">Confidence</p>
-                    <p className="metric-value">{formatConfidence(result.confidence)}</p>
+            <div className="sidebar-card">
+              <h3 className="sidebar-title">Price chart</h3>
+              <div className="chart-placeholder">
+                <span>Price history visualization</span>
+              </div>
+            </div>
+
+            <div className="sidebar-card">
+              <h3 className="sidebar-title">Fundamentals</h3>
+              {hasResult ? (
+                <div className="mini-metrics">
+                  <div className="mini-metric">
+                    <span className="mini-label">P/E</span>
+                    <span className="mini-value">{fundamentals.pe}</span>
+                  </div>
+                  <div className="mini-metric">
+                    <span className="mini-label">Earnings growth</span>
+                    <span className="mini-value">{fundamentals.eg}</span>
+                  </div>
+                  <div className="mini-metric">
+                    <span className="mini-label">Revenue growth</span>
+                    <span className="mini-value">{fundamentals.rg}</span>
                   </div>
                 </div>
+              ) : (
+                <p className="sidebar-muted">Run an analysis to see fundamentals.</p>
+              )}
+            </div>
 
-                {result.explanation && (
-                  <section className="section">
-                    <h3 className="section-title">Why this recommendation?</h3>
-                    <p className="section-body">{result.explanation}</p>
-                  </section>
-                )}
+            <div className="sidebar-card">
+              <h3 className="sidebar-title">Sentiment analysis</h3>
+              {hasResult && sentimentInfo ? (
+                <div className={`sentiment-chip sentiment-${sentimentInfo.tone}`}>
+                  {sentimentInfo.label}
+                </div>
+              ) : (
+                <p className="sidebar-muted">News sentiment will appear here.</p>
+              )}
+            </div>
 
-                <section className="section-grid">
-                  <div className="section-card">
-                    <h3 className="section-title">Technical indicators</h3>
-                    <pre className="data-pre">
-                      {JSON.stringify(result.features, null, 2)}
-                    </pre>
-                  </div>
+            <div className="sidebar-card">
+              <h3 className="sidebar-title">Data layer</h3>
+              <p className="sidebar-muted">
+                Historical prices, fundamentals, sentiment and recommendation history are stored in the backend
+                database for traceability.
+              </p>
+            </div>
+          </aside>
 
-                  <div className="section-card">
-                    <h3 className="section-title">Fundamentals</h3>
-                    <pre className="data-pre">
-                      {JSON.stringify(result.fundamentals, null, 2)}
-                    </pre>
-                  </div>
+          <main className="main">
+            {!hasResult && !err && (
+              <div className="empty-state">
+                <h2>Explainable insights for any stock</h2>
+                <p>
+                  Enter a ticker on the left and click Analyze to see technical indicators, fundamental validation,
+                  news sentiment, and an explainable Buy / Hold / Sell signal.
+                </p>
+                <ul className="empty-list">
+                  <li>Combined view of technical, fundamental, and sentiment factors.</li>
+                  <li>Clear confidence score with natural language explanation.</li>
+                  <li>AI assistant to answer &quot;Why?&quot;, &quot;RSI?&quot;, &quot;Sentiment?&quot;, and more.</li>
+                </ul>
+              </div>
+            )}
 
-                  <div className="section-card section-card-wide">
-                    <h3 className="section-title">Sentiment</h3>
-                    <pre className="data-pre">
-                      {JSON.stringify(result.sentiment, null, 2)}
-                    </pre>
-                  </div>
-                </section>
-              </article>
-
-              <aside className="panel panel-secondary">
-                <header className="panel-header">
-                  <div>
-                    <p className="panel-label">Conversation</p>
-                    <h2 className="panel-title">Explainability chat</h2>
-                  </div>
-                </header>
-
-                <div className="chat-window">
-                  {chat.map((m, i) => (
-                    <div
-                      key={i}
-                      className={`chat-message chat-message-${m.role === "you" ? "user" : "agent"}`}
-                    >
-                      <span className="chat-role">
-                        {m.role === "you" ? "You" : "Agent"}
-                      </span>
-                      <p className="chat-text">{m.text}</p>
+            {hasResult && (
+              <>
+                <section className="panel main-reco-panel">
+                  <header className="panel-header">
+                    <div>
+                      <p className="panel-label">Price chart</p>
+                      <h2 className="panel-title">{result.ticker}</h2>
                     </div>
-                  ))}
-                </div>
+                    <div className="reco-summary">
+                      <span className={getRecommendationClass(result.recommendation)}>
+                        {result.recommendation || "No signal"}
+                      </span>
+                      <span className="reco-confidence">{formatConfidence(result.confidence)}</span>
+                    </div>
+                  </header>
 
-                <div className="chat-input-row">
-                  <input
-                    className="chat-input"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    placeholder={hasResult ? "Ask about risk, signals, or time horizon…" : "Run Analyze to enable chat"}
-                    disabled={!hasResult}
-                  />
-                  <button
-                    className="secondary-button"
-                    onClick={sendChat}
-                    disabled={!hasResult}
-                  >
-                    Send
-                  </button>
-                </div>
-
-                {!hasResult && (
-                  <p className="chat-helper">
-                    Run an analysis first to unlock the explainability chat for this ticker.
+                  <p className="panel-subtext">
+                    This stock is recommended as a {result.recommendation || "—"} based on the following factors:
                   </p>
-                )}
-              </aside>
-            </section>
-          )}
-        </main>
+                  <ul className="bullet-list">
+                    <li>
+                      <strong>Technical indicators:</strong> Moving averages (MA‑10 / MA‑30), RSI and volatility from
+                      recent price action.
+                    </li>
+                    <li>
+                      <strong>Fundamentals:</strong> Valuation and growth metrics from the latest fundamentals snapshot.
+                    </li>
+                    <li>
+                      <strong>Sentiment:</strong> News sentiment score aggregated from recent finance headlines.
+                    </li>
+                  </ul>
+                </section>
+
+                <section className="panel">
+                  <header className="panel-header">
+                    <div>
+                      <p className="panel-label">Explanation</p>
+                      <h2 className="panel-title">Why this recommendation?</h2>
+                    </div>
+                  </header>
+                  <p className="section-body">{result.explanation}</p>
+                </section>
+
+                <section className="panel panel-secondary chat-panel">
+                  <header className="panel-header">
+                    <div>
+                      <p className="panel-label">AI Assistant</p>
+                      <h2 className="panel-title">Ask for more detail…</h2>
+                    </div>
+                  </header>
+
+                  <div className="chat-window">
+                    {chat.map((m, i) => (
+                      <div
+                        key={i}
+                        className={`chat-message chat-message-${m.role === "you" ? "user" : "agent"}`}
+                      >
+                        <span className="chat-role">
+                          {m.role === "you" ? "You" : "Agent"}
+                        </span>
+                        <p className="chat-text">{m.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="chat-input-row">
+                    <input
+                      className="chat-input"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder={hasResult ? "Ask: Why? RSI? Confidence? Sentiment? ..." : "Run Analyze to enable chat"}
+                      disabled={!hasResult}
+                    />
+                    <button
+                      className="secondary-button"
+                      onClick={sendChat}
+                      disabled={!hasResult}
+                    >
+                      Send
+                    </button>
+                  </div>
+
+                  {!hasResult && (
+                    <p className="chat-helper">
+                      Run an analysis first to unlock the explainability chat for this ticker.
+                    </p>
+                  )}
+                </section>
+              </>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   );
