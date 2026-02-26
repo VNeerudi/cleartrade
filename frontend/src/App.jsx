@@ -30,11 +30,36 @@ const formatFundamentals = (fundamentals) => {
 
 const describeSentiment = (score) => {
   if (typeof score !== "number" || Number.isNaN(score)) {
-    return { label: "No data", tone: "neutral" };
+    return {
+      label: "No data",
+      tone: "neutral",
+      explanation: "No recent news headlines were available to score sentiment for this ticker.",
+    };
   }
-  if (score > 0.1) return { label: `Positive (${score.toFixed(2)})`, tone: "positive" };
-  if (score < -0.1) return { label: `Negative (${score.toFixed(2)})`, tone: "negative" };
-  return { label: `Neutral (${score.toFixed(2)})`, tone: "neutral" };
+
+  const rounded = score.toFixed(2);
+
+  if (score > 0.1) {
+    return {
+      label: `Positive (${rounded})`,
+      tone: "positive",
+      explanation: "Recent finance news is mostly positive, which supports bullish sentiment for this stock.",
+    };
+  }
+
+  if (score < -0.1) {
+    return {
+      label: `Negative (${rounded})`,
+      tone: "negative",
+      explanation: "Recent finance news is mostly negative, which may be contributing to downside risk.",
+    };
+  }
+
+  return {
+    label: `Neutral (${rounded})`,
+    tone: "neutral",
+    explanation: "News flow is mixed or balanced, so sentiment is not strongly pushing price in either direction.",
+  };
 };
 
 export default function App() {
@@ -179,20 +204,15 @@ export default function App() {
             <div className="sidebar-card">
               <h3 className="sidebar-title">Sentiment analysis</h3>
               {hasResult && sentimentInfo ? (
-                <div className={`sentiment-chip sentiment-${sentimentInfo.tone}`}>
-                  {sentimentInfo.label}
-                </div>
+                <>
+                  <div className={`sentiment-chip sentiment-${sentimentInfo.tone}`}>
+                    {sentimentInfo.label}
+                  </div>
+                  <p className="sidebar-muted sentiment-expl">{sentimentInfo.explanation}</p>
+                </>
               ) : (
-                <p className="sidebar-muted">News sentiment will appear here.</p>
+                <p className="sidebar-muted">News sentiment will appear here after you run an analysis.</p>
               )}
-            </div>
-
-            <div className="sidebar-card">
-              <h3 className="sidebar-title">Data layer</h3>
-              <p className="sidebar-muted">
-                Historical prices, fundamentals, sentiment and recommendation history are stored in the backend
-                database for traceability.
-              </p>
             </div>
           </aside>
 
@@ -229,7 +249,7 @@ export default function App() {
                   </header>
 
                   <p className="panel-subtext">
-                    This stock is recommended as a {result.recommendation || "—"} based on the following factors:
+                    In simple terms: {result.summary || "This recommendation combines recent price behaviour, company fundamentals and news sentiment."}
                   </p>
                   <ul className="bullet-list">
                     <li>

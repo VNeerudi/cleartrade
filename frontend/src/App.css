@@ -248,6 +248,10 @@
   border: 1px solid transparent;
 }
 
+.sentiment-expl {
+  margin-top: 4px;
+}
+
 .sentiment-positive {
   background-color: #ecfdf3;
   border-color: #4ade80;
