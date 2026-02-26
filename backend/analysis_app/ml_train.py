@@ -51,7 +51,9 @@ def train_save(df: pd.DataFrame, model_path: str, model_type: str = "logreg"):
             n_jobs=-1,
         )
     else:
-        model = LogisticRegression(max_iter=2000, multi_class="multinomial")
+        # Older scikit-learn versions default to a multinomial-capable
+        # configuration without an explicit multi_class argument.
+        model = LogisticRegression(max_iter=2000)
 
     model.fit(X, y)
 
