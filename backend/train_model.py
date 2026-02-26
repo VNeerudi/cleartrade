@@ -11,7 +11,16 @@ from analysis_app.ml_train import add_labels, train_save
 
 MODEL_PATH = "analysis_model.joblib"
 
+
 def main():
+    """
+    Train the technical-analysis classifier on historical prices
+    for a single ticker and persist it to disk.
+
+    For the capstone, Logistic Regression provides an interpretable
+    baseline, while an optional Random Forest model can be enabled
+    by changing model_type below.
+    """
     ticker = "AAPL"
 
     qs = StockPrice.objects.filter(ticker=ticker).order_by("date")
@@ -21,8 +30,10 @@ def main():
     df = compute_indicators(df)
     df = add_labels(df)
 
-    train_save(df, MODEL_PATH)
+    # Choose between \"logreg\" (baseline) and \"forest\" (non-linear)
+    train_save(df, MODEL_PATH, model_type="logreg")
     print("Model saved to:", MODEL_PATH)
+
 
 if __name__ == "__main__":
     main()
