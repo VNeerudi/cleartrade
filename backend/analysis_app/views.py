@@ -5,7 +5,7 @@ import pandas as pd
 from core.models import StockPrice, FundamentalMetric, NewsHeadline, Recommendation
 from analysis_app.indicators import compute_indicators
 from analysis_app.sentiment import score_sentiment
-from analysis_app.agent import predict, fuse
+from analysis_app.agent import predict, fuse, summarize_for_human
 
 MODEL_PATH = "analysis_model.joblib"
 
@@ -42,6 +42,16 @@ def analyze(request):
     signal, conf, probs = predict(MODEL_PATH, feats)
     final_signal, final_conf, explanation = fuse(signal, conf, pe, eg, rg, sentiment)
 
+    summary = summarize_for_human(
+        final_signal,
+        final_conf,
+        feats,
+        pe,
+        eg,
+        rg,
+        sentiment,
+    )
+
     rec = Recommendation.objects.create(
         ticker=ticker,
         signal=final_signal,
@@ -62,6 +72,7 @@ def analyze(request):
         "recommendation": rec.signal,
         "confidence": rec.confidence,
         "explanation": rec.explanation,
+        "summary": summary,
         "class_probabilities": probs,
         "features": feats,
         "fundamentals": {"pe_ratio": pe, "earnings_growth": eg, "revenue_growth": rg},

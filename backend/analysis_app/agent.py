@@ -17,6 +17,70 @@ def predict(model_path: str, feats: dict):
     return LABELS[idx], float(np.max(probs)), probs.tolist()
 
 
+def summarize_for_human(
+    signal: str,
+    confidence: float,
+    feats: dict,
+    pe_ratio,
+    earnings_growth,
+    revenue_growth,
+    sentiment: float,
+) -> str:
+    """
+    Create a short, plain-language summary that a non-expert can understand.
+    """
+    pieces = []
+
+    # Overall recommendation
+    if signal == "BUY":
+        pieces.append("The system suggests this stock is a good buy right now.")
+    elif signal == "SELL":
+        pieces.append("The system suggests it may be a good time to sell this stock.")
+    else:
+        pieces.append("The system suggests holding this stock rather than buying or selling aggressively.")
+
+    # Confidence
+    pieces.append(f"The confidence in this view is about {confidence * 100:.0f}% based on recent market data.")
+
+    # Simple technical description
+    ma10 = feats.get("ma_10")
+    ma30 = feats.get("ma_30")
+    rsi = feats.get("rsi")
+
+    if ma10 is not None and ma30 is not None:
+        if ma10 > ma30:
+            pieces.append("Recent prices are above the longer-term average, which usually means an upward trend.")
+        elif ma10 < ma30:
+            pieces.append("Recent prices are below the longer-term average, which usually means a weaker trend.")
+
+    if rsi is not None:
+        if rsi > 70:
+            pieces.append("The RSI indicator is high, meaning the stock may be overbought in the very short term.")
+        elif rsi < 30:
+            pieces.append("The RSI indicator is low, meaning the stock may be oversold in the very short term.")
+
+    # Fundamentals
+    if pe_ratio is not None:
+        if pe_ratio > 35:
+            pieces.append("The valuation (P/E ratio) is quite high, so the stock may be expensive compared to earnings.")
+        elif pe_ratio < 15:
+            pieces.append("The valuation (P/E ratio) is relatively low, which can be attractive if earnings are stable.")
+
+    if earnings_growth is not None and earnings_growth > 0:
+        pieces.append("Company earnings have been growing, which supports a positive outlook.")
+    if revenue_growth is not None and revenue_growth > 0:
+        pieces.append("Company revenue has been growing, another good long‑term sign.")
+
+    # Sentiment
+    if sentiment is not None:
+        if sentiment > 0.1:
+            pieces.append("Recent news sentiment around the stock is mostly positive.")
+        elif sentiment < -0.1:
+            pieces.append("Recent news sentiment around the stock is mostly negative.")
+
+    return " ".join(pieces)
+
+
 def fuse(
     signal: str,
     conf: float,
