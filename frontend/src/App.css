@@ -250,6 +250,7 @@
 
 .sentiment-expl {
   margin-top: 4px;
+  font-size: 0.78rem;
 }
 
 .sentiment-positive {
@@ -316,6 +317,29 @@
   margin: 0;
   font-size: 0.85rem;
   color: #4b5563;
+}
+
+.more-details-toggle {
+  margin-top: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  text-align: left;
+}
+
+.more-details-toggle:hover {
+  text-decoration: underline;
+}
+
+.panel-heading-sm {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
 }
 
 .reco-summary {

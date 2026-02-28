@@ -6,6 +6,7 @@ from core.models import StockPrice, FundamentalMetric, NewsHeadline, Recommendat
 from analysis_app.indicators import compute_indicators
 from analysis_app.sentiment import score_sentiment
 from analysis_app.agent import predict, fuse, summarize_for_human
+from analysis_app.live_data import ensure_prices_for_ticker, ensure_fundamentals_and_news
 
 MODEL_PATH = "analysis_model.joblib"
 
@@ -14,6 +15,13 @@ def analyze(request):
     ticker = request.query_params.get("ticker", "").upper().strip()
     if not ticker:
         return Response({"error": "ticker is required"}, status=400)
+
+    # If we don't already have enough historical data for this ticker,
+    # try to fetch recent prices from Yahoo Finance on the fly.
+    ensure_prices_for_ticker(ticker)
+    # Best-effort fetch of fundamentals and recent news so those panels are
+    # populated for well-known tickers during the demo.
+    ensure_fundamentals_and_news(ticker)
 
     qs = StockPrice.objects.filter(ticker=ticker).order_by("date")
     if qs.count() < 60:
@@ -37,7 +45,10 @@ def analyze(request):
     rg = fund.revenue_growth if fund else None
 
     news = NewsHeadline.objects.filter(ticker=ticker).order_by("-date")[:10]
-    sentiment = score_sentiment([n.headline for n in news])
+    if news:
+        sentiment = score_sentiment([n.headline for n in news])
+    else:
+        sentiment = None
 
     signal, conf, probs = predict(MODEL_PATH, feats)
     final_signal, final_conf, explanation = fuse(signal, conf, pe, eg, rg, sentiment)

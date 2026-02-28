@@ -114,12 +114,13 @@ def fuse(
         reasons.append("Negative revenue growth weakens the BUY case.")
 
     # Sentiment context
-    if sentiment > 0.2:
-        confidence *= 1.05
-        reasons.append("Overall news sentiment is positive, supporting the recommendation.")
-    elif sentiment < -0.2:
-        confidence *= 0.90
-        reasons.append("Overall news sentiment is negative, reducing confidence in the signal.")
+    if sentiment is not None:
+        if sentiment > 0.2:
+            confidence *= 1.05
+            reasons.append("Overall news sentiment is positive, supporting the recommendation.")
+        elif sentiment < -0.2:
+            confidence *= 0.90
+            reasons.append("Overall news sentiment is negative, reducing confidence in the signal.")
 
     confidence = float(max(0.0, min(1.0, confidence)))
     reasons.append(

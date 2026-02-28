@@ -104,3 +104,8 @@ The main screen matches the “Stock Selection & Analysis Dashboard” described
 
 This keeps the implementation consistent with the written capstone while remaining lightweight enough to run locally without bundling large datasets into the repository.
 
+---
+
+**Cleaning the latest commit message (optional)**  
+If the latest commit on GitHub shows unwanted extra text when you view files, run `fix_last_commit.bat` from **Command Prompt or PowerShell outside your IDE** (from the repo root). It rewrites the latest commit with a clean message and force-pushes to `main`.
+
