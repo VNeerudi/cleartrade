@@ -24,3 +24,7 @@ Thumbs.db
 # Datasets (keep local only)
 data/
 *.csv
+
+# IDE / editor (do not commit)
+.cursor/
+commit_msg_clean.txt

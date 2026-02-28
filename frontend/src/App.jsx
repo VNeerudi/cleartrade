@@ -69,6 +69,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   const [q, setQ] = useState("");
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [chat, setChat] = useState([
     { role: "agent", text: "Ask about RSI, confidence, sentiment or fundamentals for this trade." },
   ]);
@@ -85,9 +86,21 @@ export default function App() {
     setLoading(true);
     try {
       const res = await fetch(`${API}/analyze?ticker=${cleaned}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analyze failed");
+      const raw = await res.text();
+
+      let data;
+      try {
+        data = raw ? JSON.parse(raw) : null;
+      } catch {
+        throw new Error("The analysis service returned an invalid response. Is the backend running?");
+      }
+
+      if (!res.ok) {
+        throw new Error((data && data.error) || "Analyze failed");
+      }
+
       setResult(data);
+      setShowMoreDetails(false);
     } catch (e) {
       setErr(e.message || "Something went wrong. Please try again.");
     } finally {
@@ -120,6 +133,9 @@ export default function App() {
   const hasResult = Boolean(result);
   const fundamentals = hasResult ? formatFundamentals(result.fundamentals) : null;
   const sentimentInfo = hasResult ? describeSentiment(result.sentiment) : null;
+  const hasFundamentalsData =
+    fundamentals &&
+    !(fundamentals.pe === "—" && fundamentals.eg === "—" && fundamentals.rg === "—");
 
   return (
     <div className="app">
@@ -173,29 +189,26 @@ export default function App() {
             </div>
 
             <div className="sidebar-card">
-              <h3 className="sidebar-title">Price chart</h3>
-              <div className="chart-placeholder">
-                <span>Price history visualization</span>
-              </div>
-            </div>
-
-            <div className="sidebar-card">
               <h3 className="sidebar-title">Fundamentals</h3>
               {hasResult ? (
-                <div className="mini-metrics">
-                  <div className="mini-metric">
-                    <span className="mini-label">P/E</span>
-                    <span className="mini-value">{fundamentals.pe}</span>
+                hasFundamentalsData ? (
+                  <div className="mini-metrics">
+                    <div className="mini-metric">
+                      <span className="mini-label">P/E</span>
+                      <span className="mini-value">{fundamentals.pe}</span>
+                    </div>
+                    <div className="mini-metric">
+                      <span className="mini-label">Earnings growth</span>
+                      <span className="mini-value">{fundamentals.eg}</span>
+                    </div>
+                    <div className="mini-metric">
+                      <span className="mini-label">Revenue growth</span>
+                      <span className="mini-value">{fundamentals.rg}</span>
+                    </div>
                   </div>
-                  <div className="mini-metric">
-                    <span className="mini-label">Earnings growth</span>
-                    <span className="mini-value">{fundamentals.eg}</span>
-                  </div>
-                  <div className="mini-metric">
-                    <span className="mini-label">Revenue growth</span>
-                    <span className="mini-value">{fundamentals.rg}</span>
-                  </div>
-                </div>
+                ) : (
+                  <p className="sidebar-muted">No fundamentals data available for this ticker.</p>
+                )
               ) : (
                 <p className="sidebar-muted">Run an analysis to see fundamentals.</p>
               )}
@@ -220,15 +233,7 @@ export default function App() {
             {!hasResult && !err && (
               <div className="empty-state">
                 <h2>Explainable insights for any stock</h2>
-                <p>
-                  Enter a ticker on the left and click Analyze to see technical indicators, fundamental validation,
-                  news sentiment, and an explainable Buy / Hold / Sell signal.
-                </p>
-                <ul className="empty-list">
-                  <li>Combined view of technical, fundamental, and sentiment factors.</li>
-                  <li>Clear confidence score with natural language explanation.</li>
-                  <li>AI assistant to answer &quot;Why?&quot;, &quot;RSI?&quot;, &quot;Sentiment?&quot;, and more.</li>
-                </ul>
+                <p>Type a ticker on the left and click Analyze to see a clear Buy / Hold / Sell view with supporting details.</p>
               </div>
             )}
 
@@ -236,10 +241,7 @@ export default function App() {
               <>
                 <section className="panel main-reco-panel">
                   <header className="panel-header">
-                    <div>
-                      <p className="panel-label">Price chart</p>
-                      <h2 className="panel-title">{result.ticker}</h2>
-                    </div>
+                    <h2 className="panel-title">{result.ticker}</h2>
                     <div className="reco-summary">
                       <span className={getRecommendationClass(result.recommendation)}>
                         {result.recommendation || "No signal"}
@@ -247,79 +249,54 @@ export default function App() {
                       <span className="reco-confidence">{formatConfidence(result.confidence)}</span>
                     </div>
                   </header>
-
                   <p className="panel-subtext">
-                    In simple terms: {result.summary || "This recommendation combines recent price behaviour, company fundamentals and news sentiment."}
+                    {result.summary || "Recommendation based on technicals, fundamentals and news sentiment."}
                   </p>
-                  <ul className="bullet-list">
-                    <li>
-                      <strong>Technical indicators:</strong> Moving averages (MA‑10 / MA‑30), RSI and volatility from
-                      recent price action.
-                    </li>
-                    <li>
-                      <strong>Fundamentals:</strong> Valuation and growth metrics from the latest fundamentals snapshot.
-                    </li>
-                    <li>
-                      <strong>Sentiment:</strong> News sentiment score aggregated from recent finance headlines.
-                    </li>
-                  </ul>
+                  <button
+                    type="button"
+                    className="more-details-toggle"
+                    onClick={() => setShowMoreDetails((v) => !v)}
+                    aria-expanded={showMoreDetails}
+                  >
+                    {showMoreDetails ? "Hide details" : "Explanation & AI chat"}
+                  </button>
                 </section>
 
-                <section className="panel">
-                  <header className="panel-header">
-                    <div>
-                      <p className="panel-label">Explanation</p>
-                      <h2 className="panel-title">Why this recommendation?</h2>
-                    </div>
-                  </header>
-                  <p className="section-body">{result.explanation}</p>
-                </section>
+                {showMoreDetails && (
+                  <>
+                    <section className="panel">
+                      <h3 className="panel-heading-sm">Why this recommendation?</h3>
+                      <p className="section-body">{result.explanation}</p>
+                    </section>
 
-                <section className="panel panel-secondary chat-panel">
-                  <header className="panel-header">
-                    <div>
-                      <p className="panel-label">AI Assistant</p>
-                      <h2 className="panel-title">Ask for more detail…</h2>
-                    </div>
-                  </header>
-
-                  <div className="chat-window">
-                    {chat.map((m, i) => (
-                      <div
-                        key={i}
-                        className={`chat-message chat-message-${m.role === "you" ? "user" : "agent"}`}
-                      >
-                        <span className="chat-role">
-                          {m.role === "you" ? "You" : "Agent"}
-                        </span>
-                        <p className="chat-text">{m.text}</p>
+                    <section className="panel panel-secondary chat-panel">
+                      <h3 className="panel-heading-sm">AI Assistant</h3>
+                      <div className="chat-window">
+                        {chat.map((m, i) => (
+                          <div
+                            key={i}
+                            className={`chat-message chat-message-${m.role === "you" ? "user" : "agent"}`}
+                          >
+                            <span className="chat-role">{m.role === "you" ? "You" : "Agent"}</span>
+                            <p className="chat-text">{m.text}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="chat-input-row">
-                    <input
-                      className="chat-input"
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                      placeholder={hasResult ? "Ask: Why? RSI? Confidence? Sentiment? ..." : "Run Analyze to enable chat"}
-                      disabled={!hasResult}
-                    />
-                    <button
-                      className="secondary-button"
-                      onClick={sendChat}
-                      disabled={!hasResult}
-                    >
-                      Send
-                    </button>
-                  </div>
-
-                  {!hasResult && (
-                    <p className="chat-helper">
-                      Run an analysis first to unlock the explainability chat for this ticker.
-                    </p>
-                  )}
-                </section>
+                      <div className="chat-input-row">
+                        <input
+                          className="chat-input"
+                          value={q}
+                          onChange={(e) => setQ(e.target.value)}
+                          placeholder="Ask: Why? RSI? Confidence? Sentiment?"
+                          onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                        />
+                        <button className="secondary-button" onClick={sendChat}>
+                          Send
+                        </button>
+                      </div>
+                    </section>
+                  </>
+                )}
               </>
             )}
           </main>
