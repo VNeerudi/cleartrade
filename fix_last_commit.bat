@@ -4,7 +4,7 @@ REM the last commit with a clean message and force-push to GitHub.
 cd /d "%~dp0"
 for /f "delims=" %%i in ('git rev-parse "HEAD^{tree}"') do set TREE=%%i
 for /f "delims=" %%i in ('git rev-parse HEAD^') do set PARENT=%%i
-for /f "delims=" %%i in ('git commit-tree %TREE% -p %PARENT% -m "Add live data support and demo-ready UI"') do set NEW=%%i
+for /f "delims=" %%i in ('git commit-tree %TREE% -p %PARENT% -m "Add MCP server integration"') do set NEW=%%i
 if defined NEW (
   git reset --hard %NEW%
   git push --force origin main
