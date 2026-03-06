@@ -1,7 +1,8 @@
 import { useState } from "react";
 import "./App.css";
 
-const API = "http://127.0.0.1:8000/api";
+// Backend API: use 8002 when running with MCP (MCP uses 8000). Override via VITE_API_BASE in .env
+const API = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8002/api";
 
 const formatConfidence = (value) => {
   if (typeof value !== "number" || Number.isNaN(value)) return "—";
@@ -267,6 +268,39 @@ export default function App() {
                     <section className="panel">
                       <h3 className="panel-heading-sm">Why this recommendation?</h3>
                       <p className="section-body">{result.explanation}</p>
+                      {result.fundamental_score != null && (
+                        <p className="section-body sidebar-muted" style={{ marginTop: "0.5rem" }}>
+                          Fundamental score (0–1): <strong>{Number(result.fundamental_score).toFixed(2)}</strong>
+                          {" "}(higher = stronger financial strength).
+                        </p>
+                      )}
+                      {(() => {
+                        const impact = result.shap_values || result.feature_importance;
+                        if (!impact || Object.keys(impact).length === 0) return null;
+                        const entries = Object.entries(impact).map(([k, v]) => [k, Number(v)]);
+                        const maxVal = Math.max(...entries.map(([, v]) => Math.abs(v)), 1e-9);
+                        return (
+                          <div className="section-body explainability-chart" style={{ marginTop: "0.75rem" }}>
+                            <h4 className="panel-heading-sm">
+                              {result.shap_values ? "SHAP impact" : "Indicator impact"} (explainability)
+                            </h4>
+                            <div className="impact-bars">
+                              {entries.map(([name, val]) => (
+                                <div key={name} className="impact-bar-row">
+                                  <span className="impact-label">{name}</span>
+                                  <div className="impact-bar-wrap">
+                                    <div
+                                      className={`impact-bar ${val >= 0 ? "impact-positive" : "impact-negative"}`}
+                                      style={{ width: `${Math.min(100, (Math.abs(val) / maxVal) * 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="impact-value">{val.toFixed(3)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </section>
 
                     <section className="panel panel-secondary chat-panel">

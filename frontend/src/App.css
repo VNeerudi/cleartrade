@@ -553,6 +553,50 @@
   }
 }
 
+/* Explainability: indicator / SHAP impact bar chart */
+.explainability-chart {
+  margin-top: 0.75rem;
+}
+.impact-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.impact-bar-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 56px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+.impact-label {
+  color: #4b5563;
+  font-weight: 500;
+}
+.impact-bar-wrap {
+  height: 14px;
+  background: #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.impact-bar {
+  height: 100%;
+  border-radius: 6px;
+  min-width: 2px;
+}
+.impact-positive {
+  background: linear-gradient(90deg, #34d399, #10b981);
+}
+.impact-negative {
+  background: linear-gradient(90deg, #f87171, #ef4444);
+}
+.impact-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #6b7280;
+}
+
 @media (max-width: 600px) {
   .ticker-row {
     flex-direction: column;

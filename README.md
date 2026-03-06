@@ -73,6 +73,24 @@ python train_model.py
 
 By default this uses an **interpretable Logistic Regression** model; an optional Random Forest can be enabled inside `train_model.py` via `model_type="forest"`. The trained model is stored as `analysis_model.joblib` and is used by the agent layer.
 
+#### Optional: LSTM, sentiment model, SHAP, backtesting
+
+- **Sentiment (TF-IDF + LR):** After importing news, train the sentiment classifier:  
+  `python manage.py train_sentiment`  
+  (Optional: install `transformers` and `torch` to use FinBERT for sentiment.)
+
+- **LSTM (temporal model):** Install `tensorflow`, then from `backend`:  
+  `python manage.py train_lstm --ticker AAPL`  
+  The analyze pipeline will use the LSTM when present.
+
+- **SHAP explainability:** Install `shap`. For Random Forest models, the API and UI will show SHAP impact.
+
+- **Backtesting:** From `backend`:  
+  `python manage.py backtest_recommendations --ticker AAPL --days 252`  
+  Use `--full` to include fundamentals and sentiment when available.
+
+See `IMPROVEMENTS.md` and `DATA_AND_SCHEMA.md` for data sources and schema.
+
 ### 3. Frontend: running the ClearTrade UI
 
 From the `frontend` directory:
