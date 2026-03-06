@@ -5,10 +5,17 @@ import pandas as pd
 from core.models import StockPrice, FundamentalMetric, NewsHeadline, Recommendation
 from analysis_app.indicators import compute_indicators
 from analysis_app.sentiment import score_sentiment
-from analysis_app.agent import predict, fuse, summarize_for_human
+from analysis_app.agent import (
+    predict,
+    fuse,
+    summarize_for_human,
+    compute_fundamental_score,
+    FEATURES as INDICATOR_NAMES,
+)
 from analysis_app.live_data import ensure_prices_for_ticker, ensure_fundamentals_and_news
 
 MODEL_PATH = "analysis_model.joblib"
+LSTM_SEQUENCE_LEN = 20
 
 @api_view(["GET"])
 def analyze(request):
@@ -38,6 +45,13 @@ def analyze(request):
         "rsi": float(latest["rsi"]),
         "volatility": float(latest["volatility"]),
     }
+    # Build sequence for LSTM if available (last LSTM_SEQUENCE_LEN rows)
+    feats_sequence = None
+    if len(df) >= LSTM_SEQUENCE_LEN:
+        try:
+            feats_sequence = df.iloc[-LSTM_SEQUENCE_LEN:][list(INDICATOR_NAMES)].values.astype("float32")
+        except Exception:
+            pass
 
     fund = FundamentalMetric.objects.filter(ticker=ticker).order_by("-period_end").first()
     pe = fund.pe_ratio if fund else None
@@ -50,8 +64,11 @@ def analyze(request):
     else:
         sentiment = None
 
-    signal, conf, probs = predict(MODEL_PATH, feats)
-    final_signal, final_conf, explanation = fuse(signal, conf, pe, eg, rg, sentiment)
+    signal, conf, probs = predict(MODEL_PATH, feats, feats_sequence=feats_sequence)
+    final_signal, final_conf, explanation = fuse(
+        signal, conf, pe, eg, rg, sentiment, probs=probs
+    )
+    fundamental_score = compute_fundamental_score(pe, eg, rg)
 
     summary = summarize_for_human(
         final_signal,
@@ -78,6 +95,11 @@ def analyze(request):
         revenue_growth=rg,
     )
 
+    from analysis_app.explainability import get_feature_importance, get_shap_values
+
+    feature_importance = get_feature_importance(MODEL_PATH, feats, probs)
+    shap_values = get_shap_values(MODEL_PATH, feats)
+
     return Response({
         "ticker": ticker,
         "recommendation": rec.signal,
@@ -87,7 +109,10 @@ def analyze(request):
         "class_probabilities": probs,
         "features": feats,
         "fundamentals": {"pe_ratio": pe, "earnings_growth": eg, "revenue_growth": rg},
+        "fundamental_score": fundamental_score,
         "sentiment": sentiment,
+        "feature_importance": feature_importance,
+        "shap_values": shap_values,
     })
 
 @api_view(["GET"])
