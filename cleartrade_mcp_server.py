@@ -7,7 +7,12 @@ from mcp.server.fastmcp import FastMCP
 
 BACKEND_API_BASE = os.getenv("CLEARTRADE_BACKEND_API", "http://127.0.0.1:8000/api")
 
-mcp = FastMCP("ClearTrade MCP Server", json_response=True)
+# Port 8001 by default so Django can use 8000. Override: set MCP_PORT=8000
+mcp = FastMCP(
+    "ClearTrade MCP Server",
+    json_response=True,
+    port=int(os.getenv("MCP_PORT", "8001")),
+)
 
 
 def _make_client() -> httpx.Client:
@@ -71,8 +76,7 @@ def get_ticker_history(ticker: str) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    # Default to Streamable HTTP on the standard MCP Inspector endpoint:
-    # MCP endpoint: http://127.0.0.1:8000/mcp
-    # Run the Django backend on a different port (e.g. 8002) to avoid conflicts.
+    # Streamable HTTP MCP. Default port 8001 (MCP_PORT) so Django runserver can stay on 8000.
+    # Endpoint: http://127.0.0.1:<MCP_PORT>/mcp  (e.g. http://127.0.0.1:8001/mcp)
     mcp.run(transport="streamable-http")
 

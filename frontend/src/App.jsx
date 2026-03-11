@@ -1,23 +1,21 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import "./App.css";
+import TechnicalSnapshot from "./components/TechnicalSnapshot.jsx";
+import SentimentWithNews from "./components/SentimentWithNews.jsx";
+import { getRecommendationClass, formatConfidence } from "./recommendationUtils.js";
 
-// Backend API: use 8002 when running with MCP (MCP uses 8000). Override via VITE_API_BASE in .env
-const API = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8002/api";
+const API = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000/api";
 
-const formatConfidence = (value) => {
-  if (typeof value !== "number" || Number.isNaN(value)) return "—";
-  return `${(value * 100).toFixed(1)}%`;
-};
-
-const getRecommendationClass = (recommendation) => {
-  if (!recommendation) return "pill pill-neutral";
-
-  const value = recommendation.toString().toLowerCase();
-  if (value.includes("buy")) return "pill pill-buy";
-  if (value.includes("sell")) return "pill pill-sell";
-  if (value.includes("hold")) return "pill pill-hold";
-  return "pill pill-neutral";
-};
+function humanizeError(message) {
+  if (!message) return "Something went wrong. Please try again.";
+  if (/failed to fetch|networkerror/i.test(message)) {
+    return "Can't reach the API. Start the backend (port 8000) and check VITE_API_BASE in .env.";
+  }
+  if (/60 rows|at least 60/i.test(message)) {
+    return "Not enough price history for this ticker. Import CSV data or wait for live fetch to fill 60+ days.";
+  }
+  return message;
+}
 
 const formatFundamentals = (fundamentals) => {
   if (!fundamentals) return {};
@@ -37,9 +35,7 @@ const describeSentiment = (score) => {
       explanation: "No recent news headlines were available to score sentiment for this ticker.",
     };
   }
-
   const rounded = score.toFixed(2);
-
   if (score > 0.1) {
     return {
       label: `Positive (${rounded})`,
@@ -47,7 +43,6 @@ const describeSentiment = (score) => {
       explanation: "Recent finance news is mostly positive, which supports bullish sentiment for this stock.",
     };
   }
-
   if (score < -0.1) {
     return {
       label: `Negative (${rounded})`,
@@ -55,13 +50,25 @@ const describeSentiment = (score) => {
       explanation: "Recent finance news is mostly negative, which may be contributing to downside risk.",
     };
   }
-
   return {
     label: `Neutral (${rounded})`,
     tone: "neutral",
     explanation: "News flow is mixed or balanced, so sentiment is not strongly pushing price in either direction.",
   };
 };
+
+// Matches backend chat_agent.suggested_prompts (rule-based explainability, no LLM)
+const CHAT_PROMPTS = [
+  "Summary",
+  "Why?",
+  "Confidence?",
+  "RSI?",
+  "Sentiment?",
+  "Fundamentals?",
+  "Moving averages?",
+  "Volatility?",
+  "help",
+];
 
 export default function App() {
   const [ticker, setTicker] = useState("AAPL");
@@ -72,8 +79,17 @@ export default function App() {
   const [q, setQ] = useState("");
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [chat, setChat] = useState([
-    { role: "agent", text: "Ask about RSI, confidence, sentiment or fundamentals for this trade." },
+    {
+      role: "agent",
+      text: "I explain your latest Analyze run (no live AI model). Try Summary, Why?, RSI, Sentiment, Fundamentals, Moving averages, Volatility—or type help.",
+    },
   ]);
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    if (!showMoreDetails) return;
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat, showMoreDetails]);
 
   async function analyze() {
     const cleaned = ticker.toUpperCase().trim();
@@ -97,25 +113,33 @@ export default function App() {
       }
 
       if (!res.ok) {
-        throw new Error((data && data.error) || "Analyze failed");
+        const serverMsg = (data && data.error) || "Analyze failed";
+        throw new Error(serverMsg);
       }
 
       setResult(data);
       setShowMoreDetails(false);
+      setChat([
+        {
+          role: "agent",
+          text: `Ready for ${data.ticker}. Ask Summary, Why?, Confidence, RSI, Sentiment, Fundamentals, MA trend, Volatility—or help.`,
+        },
+      ]);
     } catch (e) {
-      setErr(e.message || "Something went wrong. Please try again.");
+      const msg = e.message || "Something went wrong.";
+      setErr(humanizeError(msg));
     } finally {
       setLoading(false);
     }
   }
 
-  async function sendChat() {
+  async function sendChat(questionOverride) {
     if (!result) return;
-    const question = q.trim();
+    const question = (questionOverride ?? q).trim();
     if (!question) return;
 
     setChat((c) => [...c, { role: "you", text: question }]);
-    setQ("");
+    if (!questionOverride) setQ("");
 
     try {
       const res = await fetch(`${API}/chat`, {
@@ -123,11 +147,13 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticker: result.ticker, question }),
       });
-
       const data = await res.json();
       setChat((c) => [...c, { role: "agent", text: data.answer || "No response" }]);
     } catch {
-      setChat((c) => [...c, { role: "agent", text: "I couldn't reach the analysis service. Please try again." }]);
+      setChat((c) => [
+        ...c,
+        { role: "agent", text: "I couldn't reach the analysis service. Please try again." },
+      ]);
     }
   }
 
@@ -137,6 +163,9 @@ export default function App() {
   const hasFundamentalsData =
     fundamentals &&
     !(fundamentals.pe === "—" && fundamentals.eg === "—" && fundamentals.rg === "—");
+
+  const probs = result?.class_probabilities;
+  const hasProbs = probs && typeof probs === "object" && Object.keys(probs).length > 0;
 
   return (
     <div className="app">
@@ -158,11 +187,7 @@ export default function App() {
                 <div className="ticker-chip">
                   <span className="ticker-symbol">{ticker.toUpperCase()}</span>
                 </div>
-                <button
-                  className="primary-button"
-                  onClick={analyze}
-                  disabled={loading}
-                >
+                <button className="primary-button" onClick={analyze} disabled={loading}>
                   {loading ? "Analyzing..." : "Analyze"}
                 </button>
               </div>
@@ -177,7 +202,16 @@ export default function App() {
                 />
               </label>
 
-              {err && <p className="error-text">{err}</p>}
+              {loading && <div className="loading-bar" aria-hidden="true" />}
+
+              {err && (
+                <>
+                  <p className="error-text">{err}</p>
+                  <p className="error-hint">
+                    Backend: <code>python manage.py runserver</code> in <code>backend/</code>
+                  </p>
+                </>
+              )}
 
               {hasResult && (
                 <div className="ticker-summary">
@@ -215,26 +249,38 @@ export default function App() {
               )}
             </div>
 
-            <div className="sidebar-card">
-              <h3 className="sidebar-title">Sentiment analysis</h3>
+            <div className="sidebar-card sidebar-card-sentiment">
+              <h3 className="sidebar-title">Sentiment</h3>
               {hasResult && sentimentInfo ? (
-                <>
-                  <div className={`sentiment-chip sentiment-${sentimentInfo.tone}`}>
-                    {sentimentInfo.label}
-                  </div>
-                  <p className="sidebar-muted sentiment-expl">{sentimentInfo.explanation}</p>
-                </>
+                <SentimentWithNews
+                  sentimentInfo={sentimentInfo}
+                  newsSamples={result.news_samples}
+                  newsHeadlinesUsed={result.news_headlines_used}
+                  compact
+                />
               ) : (
-                <p className="sidebar-muted">News sentiment will appear here after you run an analysis.</p>
+                <p className="sidebar-muted">Run an analysis to see score and headlines used.</p>
               )}
             </div>
           </aside>
 
           <main className="main">
-            {!hasResult && !err && (
+            {loading && (
+              <div className="panel skeleton-panel" aria-busy="true">
+                <div className="skeleton-block skeleton-title" />
+                <div className="skeleton-block skeleton-line" />
+                <div className="skeleton-block skeleton-line short" />
+                <div className="skeleton-block skeleton-line" />
+              </div>
+            )}
+
+            {!hasResult && !err && !loading && (
               <div className="empty-state">
                 <h2>Explainable insights for any stock</h2>
-                <p>Type a ticker on the left and click Analyze to see a clear Buy / Hold / Sell view with supporting details.</p>
+                <p>
+                  Type a ticker on the left and click Analyze to see a clear Buy / Hold / Sell view with
+                  technical snapshot and supporting details.
+                </p>
               </div>
             )}
 
@@ -253,6 +299,15 @@ export default function App() {
                   <p className="panel-subtext">
                     {result.summary || "Recommendation based on technicals, fundamentals and news sentiment."}
                   </p>
+                  {hasProbs && (
+                    <div className="prob-chips">
+                      {Object.entries(probs).map(([k, v]) => (
+                        <span key={k} className="prob-chip" title="Model class probability">
+                          {k}: {(Number(v) * 100).toFixed(0)}%
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="more-details-toggle"
@@ -263,6 +318,19 @@ export default function App() {
                   </button>
                 </section>
 
+                <TechnicalSnapshot features={result.features} />
+
+                {hasResult && sentimentInfo && result.news_samples?.length > 0 && (
+                  <section className="panel panel-sentiment-main">
+                    <h3 className="panel-heading-sm">News & sentiment detail</h3>
+                    <SentimentWithNews
+                      sentimentInfo={sentimentInfo}
+                      newsSamples={result.news_samples}
+                      newsHeadlinesUsed={result.news_headlines_used}
+                    />
+                  </section>
+                )}
+
                 {showMoreDetails && (
                   <>
                     <section className="panel">
@@ -270,8 +338,9 @@ export default function App() {
                       <p className="section-body">{result.explanation}</p>
                       {result.fundamental_score != null && (
                         <p className="section-body sidebar-muted" style={{ marginTop: "0.5rem" }}>
-                          Fundamental score (0–1): <strong>{Number(result.fundamental_score).toFixed(2)}</strong>
-                          {" "}(higher = stronger financial strength).
+                          Fundamental score (0–1):{" "}
+                          <strong>{Number(result.fundamental_score).toFixed(2)}</strong> (higher = stronger
+                          financial strength).
                         </p>
                       )}
                       {(() => {
@@ -291,7 +360,9 @@ export default function App() {
                                   <div className="impact-bar-wrap">
                                     <div
                                       className={`impact-bar ${val >= 0 ? "impact-positive" : "impact-negative"}`}
-                                      style={{ width: `${Math.min(100, (Math.abs(val) / maxVal) * 100)}%` }}
+                                      style={{
+                                        width: `${Math.min(100, (Math.abs(val) / maxVal) * 100)}%`,
+                                      }}
                                     />
                                   </div>
                                   <span className="impact-value">{val.toFixed(3)}</span>
@@ -312,8 +383,21 @@ export default function App() {
                             className={`chat-message chat-message-${m.role === "you" ? "user" : "agent"}`}
                           >
                             <span className="chat-role">{m.role === "you" ? "You" : "Agent"}</span>
-                            <p className="chat-text">{m.text}</p>
+                            <p className="chat-text chat-text-multiline">{m.text}</p>
                           </div>
+                        ))}
+                        <div ref={chatEndRef} />
+                      </div>
+                      <div className="prompt-chips">
+                        {CHAT_PROMPTS.map((prompt) => (
+                          <button
+                            key={prompt}
+                            type="button"
+                            className="prompt-chip"
+                            onClick={() => sendChat(prompt)}
+                          >
+                            {prompt}
+                          </button>
                         ))}
                       </div>
                       <div className="chat-input-row">
@@ -324,7 +408,7 @@ export default function App() {
                           placeholder="Ask: Why? RSI? Confidence? Sentiment?"
                           onKeyDown={(e) => e.key === "Enter" && sendChat()}
                         />
-                        <button className="secondary-button" onClick={sendChat}>
+                        <button className="secondary-button" onClick={() => sendChat()}>
                           Send
                         </button>
                       </div>

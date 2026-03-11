@@ -4,8 +4,10 @@
 
 The backend supports **on-the-fly** data when the database has insufficient history:
 
-- **Stock prices:** `analysis_app/live_data.py` uses **Yahoo Finance** (`yfinance`) to fetch recent OHLCV for a ticker when `StockPrice` has fewer than 60 rows. This aligns with the paper’s “Real-Time Market Data Integration” and use of open market data (Yahoo Finance, Kaggle).
-- **Fundamentals and news:** `ensure_fundamentals_and_news(ticker)` attempts to fetch current fundamentals and recent headlines for well-known tickers so the UI shows fundamentals and sentiment even without imported CSVs.
+- **Stock prices (technicals):** `refresh_all_live_data(ticker)` always syncs **Yahoo OHLCV** into `StockPrice` using `Ticker.history(period="2y")` first, then `yf.download` if needed—so MA/RSI/volatility work **without CSV imports** as long as the symbol exists on Yahoo.
+- **Fundamentals:** Each analyze run calls `sync_fundamentals_live`, which inserts a fresh `FundamentalMetric` row from **yfinance `info`** (trailingPE, earningsGrowth, revenueGrowth) so fusion uses **current** valuation/growth when available.
+- **Sentiment:** `sync_news_live` always appends **deduped** headlines from yfinance `.news` and from **Yahoo RSS** so the latest run scores **recent** news even when the DB started empty.
+- **Legacy:** `ensure_fundamentals_and_news` remains for minimal fetch-only-when-missing behavior; the analyze API uses `refresh_all_live_data` for full live integration.
 
 Historical data can still be loaded via management commands (see README):
 

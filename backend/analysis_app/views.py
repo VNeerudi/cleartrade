@@ -12,7 +12,7 @@ from analysis_app.agent import (
     compute_fundamental_score,
     FEATURES as INDICATOR_NAMES,
 )
-from analysis_app.live_data import ensure_prices_for_ticker, ensure_fundamentals_and_news
+from analysis_app.live_data import refresh_all_live_data
 
 MODEL_PATH = "analysis_model.joblib"
 LSTM_SEQUENCE_LEN = 20
@@ -23,12 +23,16 @@ def analyze(request):
     if not ticker:
         return Response({"error": "ticker is required"}, status=400)
 
-    # If we don't already have enough historical data for this ticker,
-    # try to fetch recent prices from Yahoo Finance on the fly.
-    ensure_prices_for_ticker(ticker)
-    # Best-effort fetch of fundamentals and recent news so those panels are
-    # populated for well-known tickers during the demo.
-    ensure_fundamentals_and_news(ticker)
+    # Live data first: Yahoo OHLCV (technicals), yfinance info (fundamentals),
+    # RSS + yfinance news (sentiment). Works without imported CSV history.
+    if not refresh_all_live_data(ticker):
+        return Response(
+            {
+                "error": "Could not load enough price history for this ticker. "
+                "Check the symbol on Yahoo Finance or try another ticker.",
+            },
+            status=400,
+        )
 
     qs = StockPrice.objects.filter(ticker=ticker).order_by("date")
     if qs.count() < 60:
@@ -58,7 +62,13 @@ def analyze(request):
     eg = fund.earnings_growth if fund else None
     rg = fund.revenue_growth if fund else None
 
-    news = NewsHeadline.objects.filter(ticker=ticker).order_by("-date")[:10]
+    news = list(NewsHeadline.objects.filter(ticker=ticker).order_by("-date")[:10])
+    news_headlines_used = len(news)
+    # Expose actual headlines so the UI can show what drove sentiment (descriptive, not just a score).
+    news_samples = [
+        {"headline": n.headline, "date": n.date.isoformat() if n.date else None}
+        for n in news
+    ]
     if news:
         sentiment = score_sentiment([n.headline for n in news])
     else:
@@ -111,6 +121,8 @@ def analyze(request):
         "fundamentals": {"pe_ratio": pe, "earnings_growth": eg, "revenue_growth": rg},
         "fundamental_score": fundamental_score,
         "sentiment": sentiment,
+        "news_headlines_used": news_headlines_used,
+        "news_samples": news_samples,
         "feature_importance": feature_importance,
         "shap_values": shap_values,
     })
@@ -129,8 +141,10 @@ def history(request):
 
 @api_view(["POST"])
 def chat(request):
+    from analysis_app.chat_agent import build_chat_answer, suggested_prompts
+
     ticker = str(request.data.get("ticker", "")).upper().strip()
-    question = str(request.data.get("question", "")).strip().lower()
+    question = str(request.data.get("question", "")).strip()
     if not ticker or not question:
         return Response({"error": "ticker and question are required"}, status=400)
 
@@ -138,12 +152,5 @@ def chat(request):
     if not last:
         return Response({"answer": "No recommendation found. Run Analyze first."})
 
-    if "why" in question or "explain" in question:
-        return Response({"answer": last.explanation})
-    if "confidence" in question:
-        return Response({"answer": f"Confidence = {last.confidence:.2f}."})
-    if "rsi" in question:
-        return Response({"answer": f"RSI = {last.rsi:.2f}. Above 70 is overbought; below 30 is oversold."})
-    if "sentiment" in question or "news" in question:
-        return Response({"answer": f"Sentiment score = {last.sentiment:.2f} (positive>0, negative<0)."})
-    return Response({"answer": "Try: 'Why?', 'Confidence?', 'RSI?', 'Sentiment?'."})
+    answer = build_chat_answer(last, question)
+    return Response({"answer": answer, "suggested_prompts": suggested_prompts()})
