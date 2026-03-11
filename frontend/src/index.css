@@ -1,37 +1,55 @@
 :root {
-  /* Brighter, more appealing light theme */
-  --ct-bg: #f5f9fc;
-  --ct-bg-soft: #eef6ff;
+  /* Base */
+  --ct-bg: #f8f7fc;
   --ct-surface: #ffffff;
-  --ct-surface-up: #f0fdf9;
-  --ct-surface-mint: #ecfdf5;
-  --ct-border: #d8e8f0;
-  --ct-border-strong: #b8d4e8;
-  --ct-text: #0f172a;
-  --ct-text-muted: #5c6b7a;
-  --ct-accent: #059669;
-  --ct-accent-bright: #10b981;
-  --ct-accent-dim: rgba(16, 185, 129, 0.18);
-  --ct-blue: #2563eb;
-  --ct-blue-bright: #3b82f6;
-  --ct-blue-dim: rgba(59, 130, 246, 0.14);
-  --ct-coral: #fb7185;
-  --ct-coral-dim: rgba(251, 113, 133, 0.12);
+  --ct-surface-up: #faf9ff;
+  --ct-border: #e4e0f0;
+  --ct-text: #1a1625;
+  --ct-text-muted: #635e6e;
   --ct-radius-lg: 20px;
   --ct-radius-md: 14px;
-  --ct-radius-pill: 999px;
-  --ct-shadow: 0 6px 28px rgba(37, 99, 235, 0.07);
-  --ct-shadow-lg: 0 16px 48px rgba(16, 185, 129, 0.09);
   --ct-font: "DM Sans", system-ui, -apple-system, sans-serif;
   --ct-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /*
+   * Semantic themes – use for section borders/backgrounds so users scan by color:
+   * CTA / action    → indigo (primary action)
+   * Signal / verdict → follows pill (buy/sell/hold) – reinforced in panel
+   * Technicals     → cyan/sky (data, charts)
+   * Fundamentals   → amber (valuation, growth)
+   * Sentiment      → rose (news, tone)
+   * Explain / chat → violet (reasoning, Q&A)
+   */
+  --theme-cta: #4f46e5;
+  --theme-cta-bg: rgba(79, 70, 229, 0.06);
+  --theme-cta-border: rgba(79, 70, 229, 0.22);
+
+  --theme-technical: #0891b2;
+  --theme-technical-bg: rgba(8, 145, 178, 0.07);
+  --theme-technical-border: rgba(8, 145, 178, 0.25);
+
+  --theme-fundamental: #d97706;
+  --theme-fundamental-bg: rgba(217, 119, 6, 0.08);
+  --theme-fundamental-border: rgba(217, 119, 6, 0.28);
+
+  --theme-sentiment: #db2777;
+  --theme-sentiment-bg: rgba(219, 39, 119, 0.06);
+  --theme-sentiment-border: rgba(219, 39, 119, 0.22);
+
+  --theme-chat: #7c3aed;
+  --theme-chat-bg: rgba(124, 58, 237, 0.06);
+  --theme-chat-border: rgba(124, 58, 237, 0.2);
+
+  /* Signal highlights (recommendation panel emphasis) */
+  --signal-buy-glow: rgba(16, 185, 129, 0.15);
+  --signal-sell-glow: rgba(239, 68, 68, 0.12);
+  --signal-hold-glow: rgba(234, 179, 8, 0.14);
 
   font-family: var(--ct-font);
   line-height: 1.55;
   font-weight: 400;
-  font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -42,7 +60,14 @@ body {
   justify-content: center;
   align-items: flex-start;
   padding: 28px 16px 40px;
-  background: linear-gradient(165deg, #e0f2fe 0%, #f0fdf4 35%, #fff7ed 70%, #f5f9fc 100%);
+  background: linear-gradient(
+    160deg,
+    #f0ebff 0%,
+    #e8f4fc 28%,
+    #ecfdf8 55%,
+    #fff8f0 82%,
+    #f8f7fc 100%
+  );
   background-attachment: fixed;
   color: var(--ct-text);
 }

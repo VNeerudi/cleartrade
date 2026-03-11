@@ -30,8 +30,11 @@ export default function TechnicalSnapshot({ features }) {
   if (rows.length === 0) return null;
 
   return (
-    <section className="panel panel-technical">
-      <h3 className="panel-heading-sm">Technical snapshot</h3>
+    <section className="panel panel-technical section-theme-technical">
+      <h3 className="panel-heading-sm panel-heading-themed">
+        <span className="section-dot section-dot-technical" aria-hidden="true" />
+        Technical snapshot
+      </h3>
       <p className="sidebar-muted technical-lead">
         Latest indicator values used for the model and fusion.
       </p>

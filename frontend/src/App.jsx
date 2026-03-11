@@ -178,11 +178,33 @@ export default function App() {
               <p className="app-subtitle">Explainable stock decision support.</p>
             </div>
           </div>
+          <div className="theme-legend" aria-label="Section color key">
+            <span>
+              <span className="section-dot" style={{ background: "var(--theme-cta)" }} />
+              Action
+            </span>
+            <span>
+              <span className="section-dot section-dot-technical" />
+              Technical
+            </span>
+            <span>
+              <span className="section-dot section-dot-fundamentals" />
+              Fundamentals
+            </span>
+            <span>
+              <span className="section-dot section-dot-sentiment" />
+              Sentiment
+            </span>
+            <span>
+              <span className="section-dot section-dot-chat" />
+              Assistant
+            </span>
+          </div>
         </header>
 
         <div className="layout">
           <aside className="sidebar">
-            <div className="sidebar-card ticker-card">
+            <div className="sidebar-card ticker-card section-theme-cta">
               <div className="ticker-row">
                 <div className="ticker-chip">
                   <span className="ticker-symbol">{ticker.toUpperCase()}</span>
@@ -223,8 +245,11 @@ export default function App() {
               )}
             </div>
 
-            <div className="sidebar-card">
-              <h3 className="sidebar-title">Fundamentals</h3>
+            <div className="sidebar-card section-theme-fundamentals">
+              <h3 className="sidebar-title sidebar-title-themed">
+                <span className="section-dot section-dot-fundamentals" aria-hidden="true" />
+                Fundamentals
+              </h3>
               {hasResult ? (
                 hasFundamentalsData ? (
                   <div className="mini-metrics">
@@ -249,8 +274,11 @@ export default function App() {
               )}
             </div>
 
-            <div className="sidebar-card sidebar-card-sentiment">
-              <h3 className="sidebar-title">Sentiment</h3>
+            <div className="sidebar-card sidebar-card-sentiment section-theme-sentiment">
+              <h3 className="sidebar-title sidebar-title-themed">
+                <span className="section-dot section-dot-sentiment" aria-hidden="true" />
+                Sentiment
+              </h3>
               {hasResult && sentimentInfo ? (
                 <SentimentWithNews
                   sentimentInfo={sentimentInfo}
@@ -286,7 +314,18 @@ export default function App() {
 
             {hasResult && (
               <>
-                <section className="panel main-reco-panel">
+                <section
+                  className={`panel main-reco-panel panel-reco-highlight reco-accent-${(result.recommendation || "")
+                    .toString()
+                    .toLowerCase()
+                    .includes("buy")
+                    ? "buy"
+                    : (result.recommendation || "").toString().toLowerCase().includes("sell")
+                      ? "sell"
+                      : (result.recommendation || "").toString().toLowerCase().includes("hold")
+                        ? "hold"
+                        : "neutral"}`}
+                >
                   <header className="panel-header">
                     <h2 className="panel-title">{result.ticker}</h2>
                     <div className="reco-summary">
@@ -321,8 +360,11 @@ export default function App() {
                 <TechnicalSnapshot features={result.features} />
 
                 {hasResult && sentimentInfo && result.news_samples?.length > 0 && (
-                  <section className="panel panel-sentiment-main">
-                    <h3 className="panel-heading-sm">News & sentiment detail</h3>
+                  <section className="panel panel-sentiment-main section-theme-sentiment">
+                    <h3 className="panel-heading-sm panel-heading-themed">
+                      <span className="section-dot section-dot-sentiment" aria-hidden="true" />
+                      News & sentiment detail
+                    </h3>
                     <SentimentWithNews
                       sentimentInfo={sentimentInfo}
                       newsSamples={result.news_samples}
@@ -374,8 +416,11 @@ export default function App() {
                       })()}
                     </section>
 
-                    <section className="panel panel-secondary chat-panel">
-                      <h3 className="panel-heading-sm">AI Assistant</h3>
+                    <section className="panel panel-secondary chat-panel section-theme-chat">
+                      <h3 className="panel-heading-sm panel-heading-themed">
+                        <span className="section-dot section-dot-chat" aria-hidden="true" />
+                        AI Assistant
+                      </h3>
                       <div className="chat-window">
                         {chat.map((m, i) => (
                           <div
