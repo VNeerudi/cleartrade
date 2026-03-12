@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import "./App.css";
 import TechnicalSnapshot from "./components/TechnicalSnapshot.jsx";
 import SentimentWithNews from "./components/SentimentWithNews.jsx";
+import PriceChart from "./components/PriceChart.jsx";
 import { getRecommendationClass, formatConfidence } from "./recommendationUtils.js";
 
 const API = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000/api";
@@ -78,6 +80,8 @@ export default function App() {
 
   const [q, setQ] = useState("");
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [seriesPoints, setSeriesPoints] = useState([]);
+
   const [chat, setChat] = useState([
     {
       role: "agent",
@@ -119,6 +123,14 @@ export default function App() {
 
       setResult(data);
       setShowMoreDetails(false);
+      // Load price series for chart (masters-level visual)
+      try {
+        const sres = await fetch(`${API}/series?ticker=${encodeURIComponent(cleaned)}&limit=90`);
+        const sdata = await sres.json();
+        setSeriesPoints(Array.isArray(sdata.points) ? sdata.points : []);
+      } catch {
+        setSeriesPoints([]);
+      }
       setChat([
         {
           role: "agent",
@@ -168,37 +180,18 @@ export default function App() {
   const hasProbs = probs && typeof probs === "object" && Object.keys(probs).length > 0;
 
   return (
-    <div className="app">
-      <div className="app-shell">
-        <header className="app-header">
-          <div className="app-brand">
-            <span className="brand-badge">CT</span>
-            <div>
-              <h1 className="app-title">ClearTrade</h1>
-              <p className="app-subtitle">Explainable stock decision support.</p>
-            </div>
-          </div>
-          <div className="theme-legend" aria-label="Section color key">
-            <span>
-              <span className="section-dot" style={{ background: "var(--theme-cta)" }} />
-              Action
-            </span>
-            <span>
-              <span className="section-dot section-dot-technical" />
-              Technical
-            </span>
-            <span>
-              <span className="section-dot section-dot-fundamentals" />
-              Fundamentals
-            </span>
-            <span>
-              <span className="section-dot section-dot-sentiment" />
-              Sentiment
-            </span>
-            <span>
-              <span className="section-dot section-dot-chat" />
-              Assistant
-            </span>
+    <div className="app-shell app-shell-dashboard">
+        <header className="dashboard-header dashboard-header--single">
+          <div>
+            {/* Page title = task, not route name — "Dashboard" already in top nav */}
+            <h1 className="dashboard-title">Analyze</h1>
+            <p className="app-subtitle">
+              Enter a ticker for signal, chart, fundamentals, and sentiment. Use{" "}
+              <Link to="/history" className="dashboard-inline-link">
+                History
+              </Link>{" "}
+              in the nav for past runs.
+            </p>
           </div>
         </header>
 
@@ -280,12 +273,23 @@ export default function App() {
                 Sentiment
               </h3>
               {hasResult && sentimentInfo ? (
-                <SentimentWithNews
-                  sentimentInfo={sentimentInfo}
-                  newsSamples={result.news_samples}
-                  newsHeadlinesUsed={result.news_headlines_used}
-                  compact
-                />
+                <div className="sentiment-sidebar-summary">
+                  <div className="sentiment-block-header">
+                    <div className={`sentiment-chip sentiment-${sentimentInfo.tone}`}>
+                      {sentimentInfo.label}
+                    </div>
+                    {typeof result.news_headlines_used === "number" &&
+                      result.news_headlines_used > 0 && (
+                        <span className="sentiment-count">
+                          {result.news_headlines_used} headlines scored
+                        </span>
+                      )}
+                  </div>
+                  <p className="sentiment-sidebar-lead">{sentimentInfo.explanation}</p>
+                  <a href="#sentiment-detail" className="sentiment-detail-link">
+                    News headlines & detail →
+                  </a>
+                </div>
               ) : (
                 <p className="sidebar-muted">Run an analysis to see score and headlines used.</p>
               )}
@@ -357,13 +361,20 @@ export default function App() {
                   </button>
                 </section>
 
+                <section className="panel panel-chart">
+                  <PriceChart ticker={result.ticker} points={seriesPoints} />
+                </section>
+
                 <TechnicalSnapshot features={result.features} />
 
-                {hasResult && sentimentInfo && result.news_samples?.length > 0 && (
-                  <section className="panel panel-sentiment-main section-theme-sentiment">
+                {hasResult && sentimentInfo && (
+                  <section
+                    id="sentiment-detail"
+                    className="panel panel-sentiment-main section-theme-sentiment"
+                  >
                     <h3 className="panel-heading-sm panel-heading-themed">
                       <span className="section-dot section-dot-sentiment" aria-hidden="true" />
-                      News & sentiment detail
+                      News & sentiment
                     </h3>
                     <SentimentWithNews
                       sentimentInfo={sentimentInfo}
@@ -464,7 +475,6 @@ export default function App() {
             )}
           </main>
         </div>
-      </div>
     </div>
   );
 }

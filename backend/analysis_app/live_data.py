@@ -7,6 +7,7 @@ import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 
 import pandas as pd
 import yfinance as yf
@@ -177,7 +178,42 @@ def _extract_title_from_news_item(item):
     return None
 
 
-def _fetch_yahoo_rss_headlines(ticker: str, limit: int = 25):
+def _pubdate_to_date(pub_text):
+    """Parse RSS pubDate or similar to date only (UTC date)."""
+    if not pub_text or not str(pub_text).strip():
+        return None
+    try:
+        d = parsedate_to_datetime(str(pub_text).strip())
+        if d.tzinfo is not None:
+            d = d.astimezone(dt.timezone.utc)
+        return d.date()
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def _yf_item_publish_date(item) -> dt.date | None:
+    """yfinance news dict often has providerPublishTime (unix seconds)."""
+    if not isinstance(item, dict):
+        return None
+    ts = item.get("providerPublishTime") or item.get("pubDate")
+    if ts is None:
+        return None
+    try:
+        if isinstance(ts, (int, float)) and ts > 1e9:
+            return dt.datetime.fromtimestamp(int(ts), tz=dt.timezone.utc).date()
+        if isinstance(ts, str):
+            return _pubdate_to_date(ts)
+    except (OSError, ValueError, OverflowError):
+        pass
+    return None
+
+
+def _fetch_yahoo_rss_items(ticker: str, limit: int = 25):
+    """
+    Fetch Yahoo RSS headline feed; return list of {"title", "date"} with real pubDate
+    so sentiment isn't labeled with only 'today' when the article is older.
+    """
     ticker = (ticker or "").upper().strip()
     if not ticker or not re.match(r"^[A-Z0-9.\-]+$", ticker):
         return []
@@ -198,35 +234,58 @@ def _fetch_yahoo_rss_headlines(ticker: str, limit: int = 25):
         root = ET.fromstring(data)
     except ET.ParseError:
         return []
-    titles = []
+    items = []
+    seen_titles = set()
     for elem in root.iter():
         tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
         if tag != "item":
             continue
         title_el = None
+        pub_el = None
         for child in elem:
             ctag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
             if ctag == "title" and child.text:
                 title_el = child.text.strip()
-                break
-        if title_el and title_el not in titles:
-            titles.append(title_el)
-        if len(titles) >= limit:
+            if ctag == "pubDate" and child.text:
+                pub_el = child.text.strip()
+        if not title_el or title_el in seen_titles:
+            continue
+        seen_titles.add(title_el)
+        pub_date = _pubdate_to_date(pub_el) if pub_el else dt.date.today()
+        items.append({"title": title_el, "date": pub_date})
+        if len(items) >= limit:
             break
-    return titles
+    return items
 
 
-def _append_headlines_for_ticker(ticker: str, titles: list, existing_titles: set) -> int:
+def _append_headlines_for_ticker(ticker: str, entries, existing_titles: set) -> int:
+    """
+    entries: list of str (title only, date=today) or list of dict {"title", "date"}.
+    Uses real publish date when provided so UI and scoring reflect live/recency.
+    """
     today = dt.date.today()
     objs = []
-    for title in titles:
-        title = (title or "").strip()
-        if not title or len(title) < 4 or title in existing_titles:
+    for entry in entries:
+        if isinstance(entry, dict):
+            title = (entry.get("title") or "").strip()
+            pub_date = entry.get("date")
+            if pub_date is None:
+                pub_date = today
+            elif hasattr(pub_date, "date"):
+                pub_date = pub_date.date()
+            elif not isinstance(pub_date, dt.date):
+                pub_date = today
+        else:
+            title = (entry or "").strip()
+            pub_date = today
+        if not title or len(title) < 4:
+            continue
+        if title in existing_titles:
+            # Refresh publish date if we now have a real pubDate (fixes stale "all today" rows)
+            NewsHeadline.objects.filter(ticker=ticker, headline=title).update(date=pub_date)
             continue
         existing_titles.add(title)
-        objs.append(
-            NewsHeadline(ticker=ticker, date=today, headline=title)
-        )
+        objs.append(NewsHeadline(ticker=ticker, date=pub_date, headline=title))
     if not objs:
         return 0
     NewsHeadline.objects.bulk_create(objs, ignore_conflicts=True)
@@ -268,6 +327,7 @@ def sync_news_live(ticker: str) -> None:
     ticker = (ticker or "").upper().strip()
     if not ticker:
         return
+    today = dt.date.today()
     existing_titles = set(
         NewsHeadline.objects.filter(ticker=ticker).values_list("headline", flat=True)
     )
@@ -277,17 +337,21 @@ def sync_news_live(ticker: str) -> None:
         y_ticker = None
 
     if y_ticker is not None:
-        yf_titles = []
+        yf_entries = []
         for item in _yfinance_news_list(y_ticker)[:MAX_HEADLINES_TO_APPEND]:
             t = _extract_title_from_news_item(item)
-            if t:
-                yf_titles.append(t)
-        if yf_titles:
-            _append_headlines_for_ticker(ticker, yf_titles, existing_titles)
+            if not t:
+                continue
+            d = _yf_item_publish_date(item)
+            if d is None:
+                d = today
+            yf_entries.append({"title": t, "date": d})
+        if yf_entries:
+            _append_headlines_for_ticker(ticker, yf_entries, existing_titles)
 
-    rss_titles = _fetch_yahoo_rss_headlines(ticker, limit=MAX_HEADLINES_TO_APPEND)
-    if rss_titles:
-        _append_headlines_for_ticker(ticker, rss_titles, existing_titles)
+    rss_items = _fetch_yahoo_rss_items(ticker, limit=MAX_HEADLINES_TO_APPEND)
+    if rss_items:
+        _append_headlines_for_ticker(ticker, rss_items, existing_titles)
 
 
 def refresh_all_live_data(ticker: str) -> bool:
@@ -355,6 +419,6 @@ def ensure_fundamentals_and_news(ticker: str, max_news: int = 25) -> None:
             _append_headlines_for_ticker(ticker, yf_titles, existing_titles)
     if NewsHeadline.objects.filter(ticker=ticker).count() >= MIN_NEWS_HEADLINES:
         return
-    rss_titles = _fetch_yahoo_rss_headlines(ticker, limit=max_news)
-    if rss_titles:
-        _append_headlines_for_ticker(ticker, rss_titles, existing_titles)
+    rss_items = _fetch_yahoo_rss_items(ticker, limit=max_news)
+    if rss_items:
+        _append_headlines_for_ticker(ticker, rss_items, existing_titles)

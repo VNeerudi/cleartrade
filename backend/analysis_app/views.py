@@ -1,3 +1,5 @@
+import datetime as dt
+
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 import pandas as pd
@@ -62,7 +64,17 @@ def analyze(request):
     eg = fund.earnings_growth if fund else None
     rg = fund.revenue_growth if fund else None
 
-    news = list(NewsHeadline.objects.filter(ticker=ticker).order_by("-date")[:10])
+    # Prefer headlines from the last 14 days (live/recency); fall back if too few
+    cutoff = dt.date.today() - dt.timedelta(days=14)
+    news_qs = (
+        NewsHeadline.objects.filter(ticker=ticker, date__gte=cutoff)
+        .order_by("-date", "-id")[:10]
+    )
+    news = list(news_qs)
+    if len(news) < 3:
+        news = list(
+            NewsHeadline.objects.filter(ticker=ticker).order_by("-date", "-id")[:10]
+        )
     news_headlines_used = len(news)
     # Expose actual headlines so the UI can show what drove sentiment (descriptive, not just a score).
     news_samples = [
@@ -126,6 +138,31 @@ def analyze(request):
         "feature_importance": feature_importance,
         "shap_values": shap_values,
     })
+
+@api_view(["GET"])
+def series(request):
+    """
+    Last N days of close prices for charting (chronological order).
+    Requires ticker to have rows in StockPrice (run Analyze once to sync).
+    """
+    ticker = request.query_params.get("ticker", "").upper().strip()
+    if not ticker:
+        return Response({"error": "ticker is required"}, status=400)
+    try:
+        limit = min(int(request.query_params.get("limit", 90)), 365)
+    except ValueError:
+        limit = 90
+    qs = StockPrice.objects.filter(ticker=ticker).order_by("-date")[:limit]
+    rows = list(qs)
+    rows.reverse()
+    return Response({
+        "ticker": ticker,
+        "points": [
+            {"date": p.date.isoformat(), "close": float(p.close)}
+            for p in rows
+        ],
+    })
+
 
 @api_view(["GET"])
 def history(request):

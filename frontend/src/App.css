@@ -1168,8 +1168,28 @@
   border-color: var(--ct-border-strong);
 }
 
-.sidebar-card-sentiment .news-headlines-list {
-  max-height: 180px;
+/* Sidebar sentiment = summary only; full headlines live in #sentiment-detail */
+.sentiment-sidebar-summary .sentiment-block-header {
+  margin-bottom: 8px;
+}
+
+.sentiment-sidebar-lead {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.sentiment-detail-link {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.sentiment-detail-link:hover {
+  text-decoration: underline;
 }
 
 .error-text {
@@ -1183,6 +1203,205 @@
 
 .skeleton-block {
   background: linear-gradient(90deg, var(--ct-border) 0%, var(--ct-surface-up) 50%, var(--ct-border) 100%);
+}
+
+/* ========== Top nav + dashboard (masters-level layout) ========== */
+.top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  margin-bottom: 16px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.top-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: #1e293b;
+  text-decoration: none;
+}
+
+.top-nav-links {
+  display: flex;
+  gap: 8px;
+}
+
+.top-nav-link {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #475569;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.top-nav-link:hover {
+  background: #f1f5f9;
+  color: #4f46e5;
+}
+
+.app-shell-dashboard {
+  margin-top: 0;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+.dashboard-history-link {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.dashboard-history-link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-header--single {
+  display: block;
+}
+
+.dashboard-inline-link {
+  font-weight: 600;
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.dashboard-inline-link:hover {
+  text-decoration: underline;
+}
+
+/* Price chart panel */
+.panel-chart {
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.chart-wrap {
+  width: 100%;
+}
+
+.chart-title {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.chart-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  background: #f8fafc;
+  border-radius: 10px;
+}
+
+/* History page */
+.app-shell-page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.page-nav {
+  margin-bottom: 20px;
+}
+
+.page-nav-link {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: #4f46e5;
+  text-decoration: none;
+}
+
+.page-nav-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.history-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.history-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.history-table th {
+  text-align: left;
+  padding: 12px 14px;
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.history-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+.history-table tr:last-child td {
+  border-bottom: none;
+}
+
+.history-cell-time {
+  white-space: nowrap;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-cell-expl {
+  max-width: 420px;
+  color: #475569;
+  line-height: 1.45;
 }
 
 /* ========== Semantic section themes (color = meaning) ========== */
